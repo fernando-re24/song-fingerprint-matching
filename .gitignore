@@ -39,3 +39,21 @@
 
 # debug information files
 *.dwo
+
+# Build artifacts
+build/
+_skbuild/
+*.egg-info/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Audio files in datasets
+datasets/songs/*.mp3
+datasets/songs/*.wav
+datasets/songs/*.flac
+
+# macOS
+.DS_Store
