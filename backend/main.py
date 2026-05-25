@@ -4,9 +4,9 @@ Author: Fernando Rivas Espinoza
 """
 
 import ffmpeg
-import motor.motor_asyncio as motor
 import numpy as np
 import pybind11 as pb
+import pymongo
 from fastapi import FastAPI, File, UploadFile
 
 app = FastAPI()

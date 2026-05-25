@@ -8,7 +8,6 @@ An app that takes audio input and attempts to match input audio to known songs, 
   In: Raw audio. Out: Unique Hash
   Will add fuzz factor after basic implementation
   Use of pybind11 for c++ bindings 
-  Common in ML
   Once the we have the hash, the backend will send the hash through the matching algorithm
   Nearest neighbors matching
   Mongo was chosen because we don’t need a strict schema and are dealing with a large dataset that needs simple key lookups w/ hash as the index.
