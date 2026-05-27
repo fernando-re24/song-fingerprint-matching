@@ -23,6 +23,10 @@ target_include_directories(fingerprint_engine PRIVATE
     ${FFTW3_INCLUDE_DIRS}
 )
 
+target_link_directories(fingerprint_engine PRIVATE
+    ${FFTW3_LIBRARY_DIRS}
+)
+
 target_link_libraries(fingerprint_engine PRIVATE
     ${FFTW3_LIBRARIES}
 )
