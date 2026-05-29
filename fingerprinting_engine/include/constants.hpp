@@ -1,4 +1,4 @@
-//Global Constants
+//Global Constants. Sizing gauranteed by ffmpeg processing.
 
 constexpr int WINDOW_SIZE = 4096;      // FFT window size in samples
 constexpr int HOP_SIZE    = 2048;      // 50% overlap between windows
