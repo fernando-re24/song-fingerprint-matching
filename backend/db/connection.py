@@ -3,9 +3,12 @@ Database connection module for the local MongoDB instance.
 Author: Fernando Rivas Espinozas
 """
 
+import os
+
 from pymongo import MongoClient
 
-client = MongoClient("mongodb://localhost:27017")
+MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017")
+client = MongoClient(MONGO_URI)
 
 db = client["song_identifier"]
 
