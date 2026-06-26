@@ -1,15 +1,31 @@
 """
-Defines the index for the fingerprints collection, the hash field.
+Read/write helpers for the `songs-db` table.
+
+Indexes are no longer created at runtime -- the table and its `HashIndex`
+GSI are provisioned by terraform. What lives here is the small set of
+access patterns the matcher and ingestion path actually use.
+
 Author: Fernando Rivas Espinoza
 """
 
-from backend.db.connection import fingerprints_collection, songs_collection
+from backend.db.connection import get_dynamodb_table
+
+# DynamoDB caps BatchWriteItem at 25 items per request.
+BATCH_WRITE_LIMIT = 25
 
 
-def create_indexes():
-    """Create indexes for efficient fingerprint lookups and duplicate prevention."""
-    fingerprints_collection.create_index("hash")
-    songs_collection.create_index(
-        [("title", 1), ("artist", 1)],
-        unique=True,
+def put_song(item: dict) -> None:
+    """Insert a song metadata item, failing if that song already exists."""
+    get_dynamodb_table().put_item(
+        Item=item,
+        ConditionExpression="attribute_not_exists(PK) AND attribute_not_exists(SK)",
     )
+
+
+def put_fingerprints(items: list[dict]) -> int:
+    """Batch-write fingerprint items. Returns the number written."""
+    table = get_dynamodb_table()
+    with table.batch_writer() as batch:
+        for item in items:
+            batch.put_item(Item=item)
+    return len(items)
