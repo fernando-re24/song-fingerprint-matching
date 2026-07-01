@@ -9,6 +9,10 @@ Algorithm (standard Shazam-style offset voting):
   4. Score = size of the tallest bin; confidence = that bin's share of the
      candidate's votes.
 
+The `popular-songs` Redis cache sits in front of these lookups in the target
+architecture, but is not wired up yet -- `_postings_for_hash` is the single
+place it will slot into.
+
 Author: Fernando Rivas Espinoza
 """
 
@@ -47,8 +51,18 @@ class Matcher:
     """Matches query fingerprints against the fingerprint store."""
 
     def _postings_for_hash(self, hash_value: int) -> list[dict]:
-        """Return [{songId, offset}] for one hash."""
-        items = models.query_by_hash(hash_value)
+        """Return [{songId, offset}] for one hash.
+
+        A failed lookup degrades to an empty posting list rather than
+        failing the whole match -- one unreadable hash out of hundreds
+        should not sink the request.
+        """
+        try:
+            items = models.query_by_hash(hash_value)
+        except Exception:
+            logger.warning("songs-db lookup failed for hash %s", hash_value, exc_info=True)
+            return []
+
         return [
             {"songId": item["songId"], "offset": int(item["offset"])} for item in items
         ]
