@@ -1,11 +1,16 @@
 """
-Batch ingestion script for populating the fingerprint database with songs.
-Iterates over audio files in a directory, normalizes them, generates fingerprints
-via the C++ engine, and inserts song metadata + fingerprints into MongoDB.
+Batch ingestion script for populating `songs-db` with songs.
+
+Iterates over audio files in a directory, normalizes them, generates
+fingerprints via the C++ engine, and writes song metadata + fingerprint
+items into DynamoDB.
 
 Usage:
     python -m scripts.ingest                          # default: datasets/songs/
     python -m scripts.ingest /path/to/songs/folder
+
+Requires AWS credentials in the environment (or an instance/task role) and
+SONGS_TABLE_NAME pointing at the target table.
 
 Author: Fernando Rivas Espinoza
 """
@@ -13,17 +18,17 @@ Author: Fernando Rivas Espinoza
 import os
 import sys
 import tempfile
+import uuid
 
 # Add project root to path so imports work when run as a script
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import fingerprint_engine
 
-from backend.db.connection import songs_collection, fingerprints_collection
-from backend.db.models import create_indexes
-from backend.db.index import create_song, create_fingerprint  # note: file names are swapped
-from backend.services.preprocesser import preprocess_audio
+from backend.db import models
+from backend.db.index import create_fingerprint, create_song
 from backend.services.audio_loader import load_wav_as_floats
+from backend.services.preprocesser import preprocess_audio
 
 SUPPORTED_EXTENSIONS = {".mp3", ".wav", ".flac", ".ogg", ".m4a"}
 
@@ -42,17 +47,14 @@ def parse_filename(filepath: str) -> tuple[str, str]:
 
 
 def ingest_song(filepath: str) -> None:
-    """Process a single audio file and insert its fingerprints into the database."""
+    """Process a single audio file and write its fingerprints to DynamoDB."""
     artist, title = parse_filename(filepath)
     filename = os.path.basename(filepath)
 
-    # Check if song already exists
-    existing = songs_collection.find_one({"title": title, "artist": artist})
-    if existing:
+    if models.song_exists(title, artist):
         print(f"  Skipping (already ingested): {artist} - {title}")
         return
 
-    # Preprocess: convert to normalized WAV
     tmp_wav = tempfile.NamedTemporaryFile(delete=False, suffix=".wav")
     tmp_wav.close()
 
@@ -60,24 +62,22 @@ def ingest_song(filepath: str) -> None:
         preprocess_audio(filepath, tmp_wav.name)
         samples = load_wav_as_floats(tmp_wav.name)
 
-        # Generate fingerprints via C++ engine
         fingerprints = fingerprint_engine.fingerprint_audio(samples)
 
         if not fingerprints:
             print(f"  Warning: No fingerprints generated for {artist} - {title}")
             return
 
-        # Insert song metadata
-        song_doc = create_song(title, artist, filename)
-        result = songs_collection.insert_one(song_doc)
-        song_id = result.inserted_id
+        song_id = str(uuid.uuid4())
 
-        # Bulk insert fingerprint documents
-        fp_docs = [
+        # Fingerprints first: a song row without fingerprints would be
+        # matchable-but-empty, whereas orphan fingerprints are inert.
+        fp_items = [
             create_fingerprint(hash_value=h, song_id=song_id, offset=offset)
             for h, offset in fingerprints
         ]
-        fingerprints_collection.insert_many(fp_docs)
+        models.put_fingerprints(fp_items)
+        models.put_song(create_song(song_id, title, artist, filename))
 
         print(f"  Ingested: {artist} - {title} ({len(fingerprints)} fingerprints)")
 
@@ -86,7 +86,6 @@ def ingest_song(filepath: str) -> None:
 
 
 def main():
-    # Determine songs directory from CLI args or default
     if len(sys.argv) > 1:
         songs_dir = sys.argv[1]
     else:
@@ -100,11 +99,6 @@ def main():
         print(f"Error: Directory not found: {songs_dir}")
         sys.exit(1)
 
-    # Ensure indexes exist before ingesting
-    print("Creating database indexes...")
-    create_indexes()
-
-    # Collect audio files
     audio_files = sorted(
         os.path.join(songs_dir, f)
         for f in os.listdir(songs_dir)
@@ -118,7 +112,6 @@ def main():
 
     print(f"Found {len(audio_files)} audio file(s) in {songs_dir}\n")
 
-    # Ingest each song
     success_count = 0
     for i, filepath in enumerate(audio_files, 1):
         print(f"[{i}/{len(audio_files)}] Processing: {os.path.basename(filepath)}")
