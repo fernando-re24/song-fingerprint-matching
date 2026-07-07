@@ -7,9 +7,14 @@ Flow per the deployed architecture:
         -> songs-db (DynamoDB)
         -> match payload
 
-Message body is JSON:
+Message body is JSON. Two shapes are accepted:
 
     {"requestId": "...", "fingerprints": [[hash, offset], ...]}
+        already fingerprinted upstream by the Lambda (normal path)
+
+    {"requestId": "...", "s3Key": "uploads/abc.wav"}
+        raw audio still in `audio-payloads`; this worker fingerprints it
+        itself using the bundled C++ engine
 
 Messages are deleted only after a successful match, so a crash mid-flight
 leaves the message to reappear after the visibility timeout instead of
@@ -21,8 +26,14 @@ Author: Fernando Rivas Espinoza
 import json
 import logging
 import os
+import tempfile
 
-from backend.db.connection import MATCH_QUEUE_URL, get_sqs_client
+from backend.db.connection import (
+    AUDIO_BUCKET,
+    MATCH_QUEUE_URL,
+    get_s3_client,
+    get_sqs_client,
+)
 from backend.services.matcher import Matcher
 
 logger = logging.getLogger(__name__)
@@ -33,14 +44,38 @@ MAX_MESSAGES_PER_POLL = 10
 VISIBILITY_TIMEOUT = int(os.getenv("VISIBILITY_TIMEOUT", "60"))
 
 
+def _fingerprint_from_s3(s3_key: str) -> list[tuple[int, int]]:
+    """Download audio from `audio-payloads`, normalize it, and fingerprint it.
+
+    Imported lazily so the module remains importable (and unit-testable)
+    on machines without the compiled C++ extension.
+    """
+    import fingerprint_engine
+
+    from backend.services.audio_loader import load_wav_as_floats
+    from backend.services.preprocesser import preprocess_audio
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        raw_path = os.path.join(tmpdir, "raw_input")
+        wav_path = os.path.join(tmpdir, "normalized.wav")
+
+        get_s3_client().download_file(AUDIO_BUCKET, s3_key, raw_path)
+        preprocess_audio(raw_path, wav_path)
+        samples = load_wav_as_floats(wav_path)
+
+        return fingerprint_engine.fingerprint_audio(samples)
+
+
 def process_message(body: dict, matcher: Matcher) -> dict:
     """Turn one queue message into a match payload."""
     request_id = body.get("requestId")
 
-    if "fingerprints" not in body:
-        raise ValueError("message must contain 'fingerprints'")
-
-    fingerprints = [(int(h), int(o)) for h, o in body["fingerprints"]]
+    if "fingerprints" in body:
+        fingerprints = [(int(h), int(o)) for h, o in body["fingerprints"]]
+    elif "s3Key" in body:
+        fingerprints = _fingerprint_from_s3(body["s3Key"])
+    else:
+        raise ValueError("message must contain either 'fingerprints' or 's3Key'")
 
     matches = matcher.match(fingerprints)
 
