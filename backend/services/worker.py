@@ -26,6 +26,7 @@ Author: Fernando Rivas Espinoza
 import json
 import logging
 import os
+import signal
 import tempfile
 
 from backend.db.connection import (
@@ -42,6 +43,23 @@ logger = logging.getLogger(__name__)
 WAIT_TIME_SECONDS = 20
 MAX_MESSAGES_PER_POLL = 10
 VISIBILITY_TIMEOUT = int(os.getenv("VISIBILITY_TIMEOUT", "60"))
+
+
+class GracefulShutdown:
+    """Flips `should_stop` on SIGTERM so Fargate scale-in drains cleanly.
+
+    ECS sends SIGTERM and then waits (stopTimeout) before SIGKILL, so
+    finishing the in-flight message here avoids re-delivering work.
+    """
+
+    def __init__(self):
+        self.should_stop = False
+        signal.signal(signal.SIGTERM, self._handle)
+        signal.signal(signal.SIGINT, self._handle)
+
+    def _handle(self, signum, _frame):
+        logger.info("received signal %s, finishing in-flight work", signum)
+        self.should_stop = True
 
 
 def _fingerprint_from_s3(s3_key: str) -> list[tuple[int, int]]:
@@ -87,7 +105,7 @@ def process_message(body: dict, matcher: Matcher) -> dict:
 
 
 def run() -> None:
-    """Poll SQS forever."""
+    """Poll SQS until told to stop."""
     logging.basicConfig(
         level=os.getenv("LOG_LEVEL", "INFO"),
         format="%(asctime)s %(levelname)s %(name)s %(message)s",
@@ -98,10 +116,11 @@ def run() -> None:
 
     sqs = get_sqs_client()
     matcher = Matcher()
+    lifecycle = GracefulShutdown()
 
     logger.info("matching-container polling %s", MATCH_QUEUE_URL)
 
-    while True:
+    while not lifecycle.should_stop:
         response = sqs.receive_message(
             QueueUrl=MATCH_QUEUE_URL,
             MaxNumberOfMessages=MAX_MESSAGES_PER_POLL,
@@ -126,6 +145,8 @@ def run() -> None:
                 # Left on the queue: redelivered after the visibility
                 # timeout, and eventually dead-lettered by the queue policy.
                 logger.exception("failed to process message %s", message.get("MessageId"))
+
+    logger.info("matching-container shut down cleanly")
 
 
 if __name__ == "__main__":
