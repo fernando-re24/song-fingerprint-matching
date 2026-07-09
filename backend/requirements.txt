@@ -1,0 +1,4 @@
+# Runtime dependencies for the matching-container image.
+# Kept as a plain requirements file (not poetry) so the Docker build stays
+# a single cached `pip install` layer.
+boto3==1.34.144
