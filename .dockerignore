@@ -1,0 +1,27 @@
+.git
+.gitignore
+.venv
+venv
+__pycache__
+**/__pycache__
+*.py[cod]
+*.egg-info
+.pytest_cache
+.ruff_cache
+.DS_Store
+**/.DS_Store
+
+# Not needed by the matching-container
+client/
+datasets/
+terraform/
+scripts/
+docs/
+README.md
+.claude/
+
+# Build artifacts from local (host) builds -- must not leak into the image,
+# they are compiled for the host arch, not linux/amd64.
+fingerprinting_engine/build/
+fingerprinting_engine/_skbuild/
+**/*.so
