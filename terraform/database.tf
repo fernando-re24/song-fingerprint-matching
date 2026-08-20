@@ -27,8 +27,8 @@ resource "aws_dynamodb_table" "songs_db" {
   }
 
   global_secondary_index {
-    name ="HashIndex"
-    projection_type = "INCLUDE"
+    name               = "HashIndex"
+    projection_type    = "INCLUDE"
     non_key_attributes = []
 
     key_schema {

@@ -1,17 +1,18 @@
-resource "aws_iam_policy" "fargate_dynamodb_access"{
-    name = "fargate-dynamodb-access"
-    description = "Allows the fargate instance to read from the songs table"
-    policy = jsonencode({
-        Version = "2012-10-17"
+resource "aws_iam_policy" "fargate_dynamodb_access" {
+  name        = "fargate-dynamodb-access"
+  description = "Allows the fargate instance to read from the songs table"
+  policy = jsonencode({
+    Version = "2012-10-17"
 
-        {
-        Sid    = "AssumeSourceTableRole"
+    Statement = [
+      {
+        Sid    = "AssumeSongTableRole"
         Effect = "Allow"
         Action = [
           "sts:AssumeRole"
         ]
         Resource = [
-          var.source_table_assume_role_arn
+          #
         ]
       },
       {
@@ -40,5 +41,6 @@ resource "aws_iam_policy" "fargate_dynamodb_access"{
         ]
         Resource = aws_kms_key.dynamodb_key.arn
       }
+    ]
   })
 }
