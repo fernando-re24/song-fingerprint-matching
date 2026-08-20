@@ -15,7 +15,7 @@ resource "aws_lambda_function" "fingerprint_generator"{
 
 # Artifact
 locals {
-    fingerprint_module_path = "${path.modulle}/../fingerprintGenerator"
+    fingerprint_module_path = "${path.module}/../fingerprintGenerator"
     lambda_build_dir = "${path.module/build/fingerprintGenerator}"
     lambda_zip = "${path.module}/build/fingerprintGenerator.zip"
 }
