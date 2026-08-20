@@ -10,14 +10,14 @@ variable "aws_profile" {
   default     = null
 }
 
-variable "matching_endpoint_backend_path"{
-  description =  "Endpoint path for the song matching api"
-  type = string
-  default = null
+variable "matching_endpoint_backend_path" {
+  description = "Endpoint path for the song matching api"
+  type        = string
+  default     = null
 }
 
-variable "uploading_endpoint_backend_path"{
-  description =  "Endpoint path for the song matching api"
-  type = string
-  default = null
+variable "uploading_endpoint_backend_path" {
+  description = "Endpoint path for the song matching api"
+  type        = string
+  default     = null
 }

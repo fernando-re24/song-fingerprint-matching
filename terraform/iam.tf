@@ -46,7 +46,7 @@ resource "aws_iam_policy" "fargate_dynamodb_access" {
 }
 
 
-resource "aws_iam_role" "fingerprintGenerator"{
+resource "aws_iam_role" "fingerprintGenerator" {
   name = "fingerprint-generator-role"
 
   assume_role_policy = jsonencode({
