@@ -44,3 +44,21 @@ resource "aws_iam_policy" "fargate_dynamodb_access" {
     ]
   })
 }
+
+
+resource "aws_iam_role" "fingerprintGenerator"{
+  name = "fingerprint-generator-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Principal = {
+          Service = "lambda.amazonaws.com"
+        }
+        Action = "sts:AssumeRole"
+      }
+    ]
+  })
+}

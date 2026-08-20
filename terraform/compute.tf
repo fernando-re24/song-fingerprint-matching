@@ -1,6 +1,6 @@
 resource "aws_lambda_function" "fingerprint_generator"{
     function_name = "fingerprintGenerator"
-    role = ""
+    role = aws_iam_role.fingerprintGenerator.arn
 
     filename = data.archive_file.fingerprint_generator.outputh_path
     handler = "fingerprintGenerator.__main__.lambda_handler"
