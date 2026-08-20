@@ -11,13 +11,13 @@ variable "aws_profile" {
 }
 
 variable "matching_endpoint_backend_path" {
-  description = "Endpoint path for the song matching api"
+  description = "API Gateway path part for the song matching endpoint (no leading slash)."
   type        = string
-  default     = null
+  default     = "matches"
 }
 
 variable "uploading_endpoint_backend_path" {
-  description = "Endpoint path for the song matching api"
+  description = "API Gateway path part for the audio upload endpoint (no leading slash)."
   type        = string
-  default     = null
+  default     = "uploads"
 }
