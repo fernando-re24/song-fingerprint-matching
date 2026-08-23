@@ -47,7 +47,7 @@ resource "aws_dynamodb_table" "songs_db" {
 }
 
 resource "aws_s3_bucket" "audio_upload_bucket" {
-  bucket = "song-matcher-audio-upload-bucket"
+  bucket = var.audio_bucket_name
 }
 
 # Versioning disabled since audio uploads are ephemeral

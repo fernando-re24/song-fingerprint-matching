@@ -21,3 +21,9 @@ variable "uploading_endpoint_backend_path" {
   type        = string
   default     = "uploads"
 }
+
+variable "audio_bucket_name" {
+  description = "Name of the audi uplaod bucket"
+  type = string
+  default = null
+}

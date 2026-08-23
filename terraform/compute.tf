@@ -86,6 +86,12 @@ resource "aws_lambda_function" "presignedURL" {
   memory_size      = 512
   timeout          = 10
 
+  environment {
+    variables = {
+        BUCKET_NAME = "${aws_s3_bucket.audio_upload_bucket.bucket}"
+    }
+  }
+
   depends_on = [data.archive_file.presignedURL]
 }
 
